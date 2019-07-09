@@ -55,7 +55,7 @@ void receive_headers(GenericIO &a_source, Handler a_handler)
     while (!end_of_headers) {
         const size_t read = a_source.Read(&buffer[buf_size], sizeof(buffer) - buf_size);
         if (!read) {
-            throw HttpRuntimeError("connection has been unexpectedly closed");
+            throw HttpConnectionError("connection has been unexpectedly closed");
         }
         buf_size += read;
 
@@ -224,7 +224,7 @@ void http_fetch(
         while (content_length) {
             const size_t read = socket->Read(buffer.get(), std::min(buffer_size, content_length));
             if (!read) {
-                throw HttpRuntimeError("connection has been unexpectedly closed");
+                throw HttpConnectionError("connection has been unexpectedly closed");
             }
             a_output.Write(buffer.get(), read);
             content_length -= read;

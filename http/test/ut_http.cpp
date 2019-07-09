@@ -148,7 +148,7 @@ BOOST_AUTO_TEST_CASE(response_lf)
 }
 
 //------------------------------------------------------------------------------------------------------------
-BOOST_AUTO_TEST_CASE(broken_connection)
+BOOST_AUTO_TEST_CASE(broken_connection_in_content)
 {
     response =
         "HTTP/1.1 200 OK\n"
@@ -160,8 +160,20 @@ BOOST_AUTO_TEST_CASE(broken_connection)
         "\n"
         "Ooops"
     ;
-    BOOST_CHECK_THROW(http_fetch("http://local.host/index.html", socket_factory, output), HttpRuntimeError);
+    BOOST_CHECK_THROW(http_fetch("http://local.host/index.html", socket_factory, output), HttpConnectionError);
 }
 
+//------------------------------------------------------------------------------------------------------------
+BOOST_AUTO_TEST_CASE(broken_connection_in_headers)
+{
+    response =
+        "HTTP/1.1 200 OK\n"
+        "Server: nginx/1.17.1\n"
+        "Date: Sat, 06 Jul 2019 17:47:13 GMT\n"
+        "Content-Type: text/plain\r\n"
+        "Content-Length: 100\n"
+    ;
+    BOOST_CHECK_THROW(http_fetch("http://local.host/index.html", socket_factory, output), HttpConnectionError);
+}
 
 BOOST_AUTO_TEST_SUITE_END()

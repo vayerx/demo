@@ -9,6 +9,7 @@
 
 class InvalidUrlError: public std::invalid_argument { using std::invalid_argument::invalid_argument; };
 class HttpRuntimeError: public std::runtime_error { using std::runtime_error::runtime_error; };
+class HttpConnectionError: public HttpRuntimeError { using HttpRuntimeError::HttpRuntimeError; };
 
 //------------------------------------------------------------------------------------------------------------
 typedef
