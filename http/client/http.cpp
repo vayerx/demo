@@ -119,36 +119,33 @@ void http_fetch(
 
     // parse host
     const size_t end_of_host_pos = unparsed.find_first_of(":/");
-    if (end_of_host_pos == std::string::npos) {
-        throw InvalidUrlError("no explicit file has specified in url: " + a_url);
-    }
     if (end_of_host_pos < 1) {
         throw InvalidUrlError("missing host in url: " + a_url);
     }
 
-    // parse port
-    const bool has_port = unparsed[end_of_host_pos] == ':';
-    host = std::string_view{unparsed.data(), end_of_host_pos};
-    unparsed.remove_prefix(end_of_host_pos + (has_port ? 1 : 0) /* leave first slash */);
+    if (end_of_host_pos == std::string::npos) {
+        host = unparsed;
+        path = "/";
+    } else {
+        // parse port
+        const bool has_port = (unparsed[end_of_host_pos] == ':');
+        host = std::string_view{unparsed.data(), end_of_host_pos};
+        unparsed.remove_prefix(end_of_host_pos + (has_port ? 1 : 0) /* leave first slash */);
 
-    if (has_port) {
-        const size_t end_of_port_pos = unparsed.find('/');
-        if (end_of_port_pos == std::string::npos) {
-            throw InvalidUrlError("no explicit file has been specified in url: " + a_url);
+        if (has_port) {
+            const size_t end_of_port_pos = unparsed.find('/');
+            const bool has_path = (end_of_port_pos != std::string::npos);
+            if (end_of_port_pos < 1) {
+                throw InvalidUrlError("missing port in url: " + a_url);
+            }
+
+            parse_field(unparsed.substr(0, end_of_port_pos), port, "invalid port in url");
+
+            unparsed.remove_prefix(has_path ? end_of_port_pos /* leave first slash */ : unparsed.size());
         }
-        if (end_of_port_pos < 1) {
-            throw InvalidUrlError("missing port in url: " + a_url);
-        }
 
-        parse_field(unparsed.substr(0, end_of_port_pos), port, "invalid port in url");
-
-        unparsed.remove_prefix(end_of_port_pos /* leave first slash */);
-    }
-
-    // "parse" path
-    path = unparsed;
-    if (path.size() < 2) {
-        throw InvalidUrlError("empty file in url: " + a_url);
+        // "parse" path
+        path = unparsed.empty() ? "/" : unparsed;
     }
 
     // construct socket

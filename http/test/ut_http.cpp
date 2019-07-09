@@ -10,6 +10,7 @@ struct HttpFixture
     SocketFactory socket_factory;
 
     size_t read_chunk_size = 16;
+    std::string request;
     std::string response;
 
     uint16_t    required_port = 80;
@@ -39,15 +40,32 @@ struct HttpFixture
             io->RegisterOnRead([&](void *, [[maybe_unused]] size_t a_size) {
                 BOOST_TEST_MESSAGE("READ " + std::to_string(a_size) + " bytes");
             });
+#endif
 
             io->RegisterOnWrite([&]([[maybe_unused]] const void *data, [[maybe_unused]] size_t a_size) {
-                BOOST_TEST_MESSAGE("WRITE:\n" + std::string(static_cast<const char *>(data), a_size));
+                request += std::string_view(static_cast<const char *>(data), a_size);
             });
-#endif
 
             io->SetInput(response);
             return std::unique_ptr<GenericIO>(io.release());
         };
+    }
+
+    void CheckValidUrl(const std::string &a_url, const std::string &a_path, uint16_t a_port = 80)
+    {
+        request = "";       // several requests are made in the same test-case -- too hard to make lots of TCs
+        required_port = a_port;
+
+        http_fetch(a_url, socket_factory, output);
+
+        const std::string expect_query = "GET " + a_path + " HTTP/1.1";
+        BOOST_CHECK_MESSAGE(
+            request.find(expect_query) != std::string::npos,
+            '"'+ expect_query + "\" not found in request \"" + request + '"'
+        );
+
+        const std::string content = output.AquireOutput();  // content is moved -- don't pass call to macro
+        BOOST_CHECK_EQUAL(content, "OK");
     }
 };
 
@@ -55,13 +73,20 @@ struct HttpFixture
 BOOST_FIXTURE_TEST_SUITE(http, HttpFixture)
 
 //------------------------------------------------------------------------------------------------------------
-BOOST_AUTO_TEST_CASE(parse_urls)
+BOOST_AUTO_TEST_CASE(query_file)
 {
-    http_fetch("http://local.host/index.html", socket_factory, output);
-    http_fetch("local.host/index.html", socket_factory, output);
+    CheckValidUrl("http://local.host/index.html", "/index.html");
+    CheckValidUrl("local.host/index.html", "/index.html");
+    CheckValidUrl("http://local.host:8080/index.html", "/index.html", 8080);
+}
 
-    required_port = 8080;
-    http_fetch("http://local.host:8080/index.html", socket_factory, output);
+//------------------------------------------------------------------------------------------------------------
+BOOST_AUTO_TEST_CASE(query_root)
+{
+    CheckValidUrl("http://local.host", "/");
+    CheckValidUrl("http://local.host/", "/");
+    CheckValidUrl("http://local.host:8080", "/", 8080);
+    CheckValidUrl("http://local.host:8080/", "/", 8080);
 }
 
 //------------------------------------------------------------------------------------------------------------
@@ -74,7 +99,6 @@ BOOST_AUTO_TEST_CASE(invalid_ports)
 //------------------------------------------------------------------------------------------------------------
 BOOST_AUTO_TEST_CASE(empty_parts)
 {
-    BOOST_CHECK_THROW(http_fetch("http://local.host/", socket_factory, output), InvalidUrlError);
     BOOST_CHECK_THROW(http_fetch("http://local.host:/index.html", socket_factory, output), InvalidUrlError);
     BOOST_CHECK_THROW(http_fetch("http:///index.html", socket_factory, output), InvalidUrlError);
     BOOST_CHECK_THROW(http_fetch("http://:123/index.html", socket_factory, output), InvalidUrlError);
