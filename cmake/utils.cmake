@@ -1,0 +1,5 @@
+macro(SetIfNot name value)
+    if (NOT DEFINED ${name} OR "${name}" STREQUAL "")
+        set(${name} ${value})
+    endif()
+endmacro()
